@@ -1,0 +1,161 @@
+name: CI/CD - Despliegue en AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-eft-inscripcion-cursos
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Construir y desplegar
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar credenciales temporales de AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Autorizar temporalmente la IP del runner
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          RUNNER_IP="$(curl -fsS https://checkip.amazonaws.com | tr -d '\r\n')"
+
+          if [ -z "${RUNNER_IP}" ]; then
+            echo "No fue posible obtener la IP pública del runner."
+            exit 1
+          fi
+
+          SG_ID="$(aws ec2 describe-instances \
+            --filters \
+              "Name=ip-address,Values=${{ secrets.EC2_HOST }}" \
+              "Name=instance-state-name,Values=running" \
+            --query "Reservations[0].Instances[0].SecurityGroups[0].GroupId" \
+            --output text)"
+
+          if [ -z "${SG_ID}" ] || [ "${SG_ID}" = "None" ]; then
+            echo "No se encontró el grupo de seguridad de la instancia EC2."
+            exit 1
+          fi
+
+          echo "IP temporal del runner: ${RUNNER_IP}"
+          echo "Grupo de seguridad detectado: ${SG_ID}"
+
+          aws ec2 authorize-security-group-ingress \
+            --group-id "${SG_ID}" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${RUNNER_IP}/32"
+
+          echo "RUNNER_IP=${RUNNER_IP}" >> "${GITHUB_ENV}"
+          echo "SG_ID=${SG_ID}" >> "${GITHUB_ENV}"
+
+      - name: Preparar clave SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${HOME}/.ssh"
+          chmod 700 "${HOME}/.ssh"
+
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" \
+            | tr -d '\r' \
+            > "${HOME}/.ssh/eft-inscripcion-cursos.pem"
+
+          chmod 600 "${HOME}/.ssh/eft-inscripcion-cursos.pem"
+
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" \
+            >> "${HOME}/.ssh/known_hosts"
+
+          chmod 600 "${HOME}/.ssh/known_hosts"
+
+      - name: Desplegar aplicación en EC2
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/eft-inscripcion-cursos.pem" \
+            -o IdentitiesOnly=yes \
+            -o ConnectTimeout=30 \
+            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" << 'EOF'
+
+          set -euo pipefail
+
+          cd /home/ec2-user/EFTInscripcionCursos
+
+          echo "Actualizando código desde GitHub..."
+          git fetch origin main
+          git reset --hard origin/main
+
+          echo "Construyendo y desplegando contenedores..."
+          sudo docker compose up -d --build --remove-orphans
+
+          echo "Verificando contenedores..."
+          sudo docker compose ps
+
+          BACKEND_RUNNING="$(
+            sudo docker inspect \
+              --format='{{.State.Running}}' \
+              eft-backend
+          )"
+
+          RABBITMQ_STATUS="$(
+            sudo docker inspect \
+              --format='{{.State.Health.Status}}' \
+              eft-rabbitmq
+          )"
+
+          if [ "${BACKEND_RUNNING}" != "true" ]; then
+            echo "El contenedor eft-backend no está ejecutándose."
+            sudo docker logs --tail 150 eft-backend
+            exit 1
+          fi
+
+          if [ "${RABBITMQ_STATUS}" != "healthy" ]; then
+            echo "RabbitMQ no alcanzó el estado healthy."
+            sudo docker logs --tail 150 eft-rabbitmq
+            exit 1
+          fi
+
+          echo "Despliegue completado correctamente."
+          EOF
+
+      - name: Eliminar clave SSH temporal
+        if: always()
+        shell: bash
+        run: |
+          rm -f "${HOME}/.ssh/eft-inscripcion-cursos.pem"
+
+      - name: Revocar acceso SSH temporal
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${SG_ID:-}" ] && [ -n "${RUNNER_IP:-}" ]; then
+            echo "Eliminando regla SSH temporal ${RUNNER_IP}/32..."
+
+            aws ec2 revoke-security-group-ingress \
+              --group-id "${SG_ID}" \
+              --protocol tcp \
+              --port 22 \
+              --cidr "${RUNNER_IP}/32" \
+              || true
+          else
+            echo "No se creó una regla SSH temporal para eliminar."
+          fi
