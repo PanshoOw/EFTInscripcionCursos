@@ -38,6 +38,7 @@ services:
 
     volumes:
       - /opt/eft/wallet:/opt/eft/wallet:ro
+      - /mnt/eft-efs/resumenes:/app/resumenes
 
     depends_on:
       rabbitmq:
