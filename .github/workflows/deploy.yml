@@ -30,6 +30,26 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Ejecutar pruebas automatizadas
+        shell: bash
+        env:
+          AZURE_B2C_ISSUER_URI: >-
+            https://panchovillarzucloudnative.b2clogin.com/tfp/34d885aa-360d-4347-ba69-3990da36207a/b2c_1_inscripcioncursossignupsignin/v2.0/
+          AZURE_B2C_AUDIENCE: b013b9bc-2fa8-4085-8648-6994a83a3de6
+          AZURE_ROLE_CLAIM: extension_consultaRole
+          AWS_S3_BUCKET_NAME: eft-inscripcion-cursos
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          chmod +x mvnw
+          ./mvnw clean test
+
       - name: Autorizar temporalmente la IP del runner
         shell: bash
         run: |
