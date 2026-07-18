@@ -1,7 +1,7 @@
 package com.duoc.cloudnative.service;
 
 import java.awt.Color;
-import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
@@ -103,7 +103,7 @@ public class ResumenInscripcionService {
     }
 
     /**
-     * Retorna el nombre estándar del documento.
+     * Retorna el nombre estándar del documento PDF.
      */
     public String obtenerNombreArchivo(Long idInscripcion) {
 
@@ -132,10 +132,17 @@ public class ResumenInscripcionService {
                 + obtenerNombreArchivo(idValidado);
     }
 
+    /**
+     * Genera el PDF primero en memoria y posteriormente
+     * escribe sus bytes en el sistema de archivos.
+     */
     private void crearDocumentoPdf(
             Inscripcion inscripcion,
             Path rutaArchivo
     ) throws IOException, DocumentException {
+
+        ByteArrayOutputStream bufferPdf =
+                new ByteArrayOutputStream();
 
         Document documento = new Document(
                 PageSize.A4,
@@ -145,11 +152,9 @@ public class ResumenInscripcionService {
                 50
         );
 
-        try (FileOutputStream salida =
-                     new FileOutputStream(rutaArchivo.toFile())) {
+        PdfWriter.getInstance(documento, bufferPdf);
 
-            PdfWriter.getInstance(documento, salida);
-
+        try {
             documento.open();
 
             agregarTitulo(documento);
@@ -164,6 +169,16 @@ public class ResumenInscripcionService {
                 documento.close();
             }
         }
+
+        byte[] contenidoPdf = bufferPdf.toByteArray();
+
+        if (contenidoPdf.length == 0) {
+            throw new IllegalStateException(
+                    "El documento PDF fue generado sin contenido."
+            );
+        }
+
+        Files.write(rutaArchivo, contenidoPdf);
     }
 
     private void agregarTitulo(Document documento)
@@ -240,9 +255,11 @@ public class ResumenInscripcionService {
             Inscripcion inscripcion
     ) throws DocumentException {
 
-        documento.add(crearEncabezadoSeccion(
-                "DATOS DEL ESTUDIANTE"
-        ));
+        documento.add(
+                crearEncabezadoSeccion(
+                        "DATOS DEL ESTUDIANTE"
+                )
+        );
 
         PdfPTable tabla = new PdfPTable(2);
 
@@ -274,9 +291,11 @@ public class ResumenInscripcionService {
             Inscripcion inscripcion
     ) throws DocumentException {
 
-        documento.add(crearEncabezadoSeccion(
-                "CURSOS INSCRITOS"
-        ));
+        documento.add(
+                crearEncabezadoSeccion(
+                        "CURSOS INSCRITOS"
+                )
+        );
 
         PdfPTable tabla = new PdfPTable(5);
 
@@ -367,7 +386,9 @@ public class ResumenInscripcionService {
         documento.add(total);
     }
 
-    private Paragraph crearEncabezadoSeccion(String texto) {
+    private Paragraph crearEncabezadoSeccion(
+            String texto
+    ) {
 
         Font fuente = FontFactory.getFont(
                 FontFactory.HELVETICA_BOLD,
@@ -375,7 +396,8 @@ public class ResumenInscripcionService {
                 Color.BLACK
         );
 
-        Paragraph encabezado = new Paragraph(texto, fuente);
+        Paragraph encabezado =
+                new Paragraph(texto, fuente);
 
         encabezado.setSpacingBefore(6);
         encabezado.setSpacingAfter(8);
@@ -424,9 +446,18 @@ public class ResumenInscripcionService {
                 new Phrase(texto, fuente)
         );
 
-        celda.setBackgroundColor(new Color(55, 71, 79));
-        celda.setHorizontalAlignment(Element.ALIGN_CENTER);
-        celda.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        celda.setBackgroundColor(
+                new Color(55, 71, 79)
+        );
+
+        celda.setHorizontalAlignment(
+                Element.ALIGN_CENTER
+        );
+
+        celda.setVerticalAlignment(
+                Element.ALIGN_MIDDLE
+        );
+
         celda.setPadding(7);
 
         tabla.addCell(celda);
@@ -449,7 +480,9 @@ public class ResumenInscripcionService {
         );
 
         celda.setHorizontalAlignment(alineacion);
-        celda.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        celda.setVerticalAlignment(
+                Element.ALIGN_MIDDLE
+        );
         celda.setPadding(6);
 
         tabla.addCell(celda);
@@ -479,7 +512,9 @@ public class ResumenInscripcionService {
     ) {
 
         BigDecimal valorSeguro =
-                valor != null ? valor : BigDecimal.ZERO;
+                valor != null
+                        ? valor
+                        : BigDecimal.ZERO;
 
         return formatoMoneda.format(valorSeguro);
     }
