@@ -99,7 +99,7 @@ public class InscripcionService {
                 ))
                 .toList();
 
-        // Envia el resumen de inscripción al cliente.
+        // Construye la respuesta y publica la inscripción en RabbitMQ.
         InscripcionResponseDTO response = new InscripcionResponseDTO(
                 inscripcionGuardada.getId(),
                 estudiante.getNombre(),

@@ -178,8 +178,27 @@ public class SecurityConfig {
                         .hasRole(ROL_INSTRUCTOR)
 
                         /*
-                         * Publicación manual de un mensaje en RabbitMQ.
-                         */
+                        * BFF DE ORQUESTACIÓN RABBITMQ
+                        *
+                        * Solo el instructor puede publicar y consumir
+                        * mensajes manualmente mediante el BFF.
+                        */
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/bff/colas/inscripciones/producir"
+                        )
+                        .hasRole(ROL_INSTRUCTOR)
+
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/bff/colas/inscripciones/consumir"
+                        )
+                        .hasRole(ROL_INSTRUCTOR)
+
+                        /*
+                        * Endpoint productor anterior.
+                        * Se mantiene temporalmente por compatibilidad.
+                        */
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/rabbit/enviar"
