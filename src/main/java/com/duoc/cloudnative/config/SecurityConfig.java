@@ -24,8 +24,11 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private static final String ROL_ESTUDIANTE = "ESTUDIANTE";
-    private static final String ROL_INSTRUCTOR = "INSTRUCTOR";
+    private static final String ROL_ESTUDIANTE =
+            "ESTUDIANTE";
+
+    private static final String ROL_INSTRUCTOR =
+            "INSTRUCTOR";
 
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
     private String issuerUri;
@@ -58,24 +61,27 @@ public class SecurityConfig {
                  * durante las pruebas locales.
                  */
                 .headers(headers ->
-                        headers.frameOptions(frame -> frame.sameOrigin())
+                        headers.frameOptions(
+                                frame -> frame.sameOrigin()
+                        )
                 )
 
                 .authorizeHttpRequests(auth -> auth
 
                         /*
-                         * Rutas técnicas permitidas sin autenticación.
+                         * Rutas técnicas permitidas
+                         * sin autenticación.
                          */
                         .requestMatchers(
                                 "/h2-console/**",
                                 "/error"
-                        ).permitAll()
+                        )
+                        .permitAll()
 
                         /*
                          * CURSOS
                          *
                          * Estudiante e instructor pueden consultar.
-                         * Solo el instructor puede crear cursos.
                          */
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -86,9 +92,30 @@ public class SecurityConfig {
                                 ROL_INSTRUCTOR
                         )
 
+                        /*
+                         * Solo el instructor puede crear cursos.
+                         */
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/cursos"
+                        )
+                        .hasRole(ROL_INSTRUCTOR)
+
+                        /*
+                         * Solo el instructor puede actualizar cursos.
+                         */
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/cursos/*"
+                        )
+                        .hasRole(ROL_INSTRUCTOR)
+
+                        /*
+                         * Solo el instructor puede eliminar cursos.
+                         */
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/cursos/*"
                         )
                         .hasRole(ROL_INSTRUCTOR)
 
@@ -178,11 +205,11 @@ public class SecurityConfig {
                         .hasRole(ROL_INSTRUCTOR)
 
                         /*
-                        * BFF DE ORQUESTACIÓN RABBITMQ
-                        *
-                        * Solo el instructor puede publicar y consumir
-                        * mensajes manualmente mediante el BFF.
-                        */
+                         * BFF DE ORQUESTACIÓN RABBITMQ
+                         *
+                         * Solo el instructor puede publicar
+                         * y consumir mensajes manualmente.
+                         */
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/bff/colas/inscripciones/producir"
@@ -196,9 +223,10 @@ public class SecurityConfig {
                         .hasRole(ROL_INSTRUCTOR)
 
                         /*
-                        * Endpoint productor anterior.
-                        * Se mantiene temporalmente por compatibilidad.
-                        */
+                         * Endpoint productor anterior.
+                         * Se mantiene temporalmente
+                         * por compatibilidad.
+                         */
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/rabbit/enviar"
@@ -208,11 +236,13 @@ public class SecurityConfig {
                         /*
                          * Toda ruta no declarada queda bloqueada.
                          */
-                        .anyRequest().denyAll()
+                        .anyRequest()
+                        .denyAll()
                 )
 
                 /*
-                 * Configura el backend como OAuth2 Resource Server.
+                 * Configura el backend como
+                 * OAuth2 Resource Server.
                  */
                 .oauth2ResourceServer(oauth2 ->
                         oauth2.jwt(jwt ->
@@ -233,7 +263,8 @@ public class SecurityConfig {
      * INSTRUCTOR -> ROLE_INSTRUCTOR
      */
     @Bean
-    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+    public JwtAuthenticationConverter
+    jwtAuthenticationConverter() {
 
         JwtAuthenticationConverter converter =
                 new JwtAuthenticationConverter();
@@ -262,7 +293,9 @@ public class SecurityConfig {
                         .build();
 
         OAuth2TokenValidator<Jwt> issuerValidator =
-                JwtValidators.createDefaultWithIssuer(issuerUri);
+                JwtValidators.createDefaultWithIssuer(
+                        issuerUri
+                );
 
         OAuth2TokenValidator<Jwt> audienceValidator =
                 new AudienceValidator(audience);
@@ -273,7 +306,9 @@ public class SecurityConfig {
                         audienceValidator
                 );
 
-        jwtDecoder.setJwtValidator(completeValidator);
+        jwtDecoder.setJwtValidator(
+                completeValidator
+        );
 
         return jwtDecoder;
     }
@@ -286,28 +321,40 @@ public class SecurityConfig {
 
         private final String expectedAudience;
 
-        private AudienceValidator(String expectedAudience) {
-            this.expectedAudience = expectedAudience;
+        private AudienceValidator(
+                String expectedAudience
+        ) {
+            this.expectedAudience =
+                    expectedAudience;
         }
 
         @Override
-        public OAuth2TokenValidatorResult validate(Jwt jwt) {
+        public OAuth2TokenValidatorResult validate(
+                Jwt jwt
+        ) {
 
-            List<String> audiences = jwt.getAudience();
+            List<String> audiences =
+                    jwt.getAudience();
 
             if (audiences != null
-                    && audiences.contains(expectedAudience)) {
+                    && audiences.contains(
+                            expectedAudience
+                    )) {
 
-                return OAuth2TokenValidatorResult.success();
+                return OAuth2TokenValidatorResult
+                        .success();
             }
 
-            OAuth2Error error = new OAuth2Error(
-                    "invalid_token",
-                    "El token JWT no contiene la audiencia esperada.",
-                    null
-            );
+            OAuth2Error error =
+                    new OAuth2Error(
+                            "invalid_token",
+                            "El token JWT no contiene "
+                                    + "la audiencia esperada.",
+                            null
+                    );
 
-            return OAuth2TokenValidatorResult.failure(error);
+            return OAuth2TokenValidatorResult
+                    .failure(error);
         }
     }
 }

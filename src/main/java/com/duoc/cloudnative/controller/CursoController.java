@@ -4,9 +4,11 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -24,35 +26,107 @@ public class CursoController {
 
     private final CursoService cursoService;
 
-    public CursoController(CursoService cursoService) {
+    public CursoController(
+            CursoService cursoService
+    ) {
         this.cursoService = cursoService;
     }
 
-    // Endpoint para listar todos los cursos disponibles.
+    /**
+     * Lista todos los cursos disponibles.
+     */
     @GetMapping
-    public ResponseEntity<List<Curso>> listarCursos() {
-        List<Curso> cursos = cursoService.listarCursos();
+    public ResponseEntity<List<Curso>>
+    listarCursos() {
+
+        List<Curso> cursos =
+                cursoService.listarCursos();
+
         return ResponseEntity.ok(cursos);
     }
 
-    // Endpoint para agregar un nuevo curso a la oferta educativa.
+    /**
+     * Registra un nuevo curso.
+     */
     @PostMapping
-    public ResponseEntity<Curso> agregarCurso(@Valid @RequestBody CursoRequestDTO cursoRequestDTO) {
-        Curso cursoGuardado = cursoService.agregarCurso(cursoRequestDTO);
-        return ResponseEntity.status(HttpStatus.CREATED).body(cursoGuardado);
+    public ResponseEntity<Curso> agregarCurso(
+            @Valid
+            @RequestBody
+            CursoRequestDTO cursoRequestDTO
+    ) {
+
+        Curso cursoGuardado =
+                cursoService.agregarCurso(
+                        cursoRequestDTO
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(cursoGuardado);
     }
 
-    // Endpoint opcional para buscar cursos por coincidencia en el nombre.
+    /**
+     * Actualiza completamente un curso existente.
+     */
+    @PutMapping("/{id}")
+    public ResponseEntity<Curso> actualizarCurso(
+            @PathVariable Long id,
+            @Valid
+            @RequestBody
+            CursoRequestDTO cursoRequestDTO
+    ) {
+
+        Curso cursoActualizado =
+                cursoService.actualizarCurso(
+                        id,
+                        cursoRequestDTO
+                );
+
+        return ResponseEntity.ok(cursoActualizado);
+    }
+
+    /**
+     * Elimina un curso existente.
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarCurso(
+            @PathVariable Long id
+    ) {
+
+        cursoService.eliminarCurso(id);
+
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Busca cursos por coincidencia parcial del nombre.
+     */
     @GetMapping("/buscar")
-    public ResponseEntity<List<Curso>> buscarCursosPorNombre(@RequestParam String nombre) {
-        List<Curso> cursos = cursoService.buscarCursosPorNombre(nombre);
+    public ResponseEntity<List<Curso>>
+    buscarCursosPorNombre(
+            @RequestParam String nombre
+    ) {
+
+        List<Curso> cursos =
+                cursoService.buscarCursosPorNombre(
+                        nombre
+                );
+
         return ResponseEntity.ok(cursos);
     }
 
-    // Endpoint opcional para consultar un curso específico por ID.
+    /**
+     * Obtiene un curso específico por su identificador.
+     */
     @GetMapping("/{id}")
-    public ResponseEntity<Curso> obtenerCursoPorId(@PathVariable Long id) {
-        Curso curso = cursoService.obtenerCursoPorId(id);
+    public ResponseEntity<Curso>
+    obtenerCursoPorId(
+            @PathVariable Long id
+    ) {
+
+        Curso curso =
+                cursoService.obtenerCursoPorId(id);
+
         return ResponseEntity.ok(curso);
     }
 }
