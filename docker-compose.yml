@@ -1,20 +1,54 @@
 services:
   rabbitmq:
     image: rabbitmq:3-management
-    container_name: rabbitmq-colas
+    container_name: eft-rabbitmq
+    restart: unless-stopped
+
+    env_file:
+      - /opt/eft/eft.env
+
     ports:
-      - "5672:5672"
       - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+    networks:
+      - eft-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: eft-backend
+    restart: unless-stopped
+
+    env_file:
+      - /opt/eft/eft.env
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - /opt/eft/wallet:/opt/eft/wallet:ro
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+    networks:
+      - eft-network
 
 volumes:
   rabbitmq_data:
+
+networks:
+  eft-network:
+    driver: bridge
